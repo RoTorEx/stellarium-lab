@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A local comparison of six optical systems through two stock-eyepiece cohorts, captured in Stellarium from Warsaw under Bortle 4 and 5 skies.">
+  <title>The eyepiece atlas · Warsaw</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23e9bd76' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23e9bd76'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div><p class="eyebrow">STELLARIUM LAB <span> / </span> OBSERVING DESK</p><h1>The eyepiece atlas<span>.</span></h1></div>
+    <div class="edition"><span class="status-dot"></span> Local edition<p>Warsaw · 52.23° N, 21.01° E</p></div>
+  </header>
+  <div class="workspace">
+    <aside aria-label="Object selection">
+      <div class="sidebar-title">THE NIGHT SKY <span id="object-count"></span></div>
+      <nav id="targets"></nav>
+      <div class="sidebar-note"><span class="tiny-line"></span>Same object. Same scene.<br>Different optics.</div>
+    </aside>
+    <main>
+      <section class="object-heading" aria-labelledby="object-title">
+        <div><p id="object-kind" class="eyebrow"></p><h2 id="object-title"></h2><p id="object-note" class="intro"></p></div>
+        <div class="scene-details" id="scene-details"></div>
+      </section>
+      <section class="controls" aria-label="Comparison settings">
+        <div class="control"><span class="control-label">SKY CONDITIONS</span><div class="segmented" role="group" aria-label="Bortle class"><button data-bortle="4">Bortle 4</button><button data-bortle="5" aria-pressed="true">Bortle 5</button></div></div>
+        <div class="control"><span class="control-label">INSTRUMENTS</span><div class="segmented" role="group" aria-label="Instrument filter"><button data-filter="all" aria-pressed="true">All six</button><button data-filter="owned">Owned</button><button data-filter="candidate">Candidates</button></div></div>
+        <p class="control-note">Stock eyepieces · no Barlow<br><span id="capture-count"></span></p>
+      </section>
+      <div class="method-note"><span>READ THE IMAGES</span><p>The circle is each instrument’s actual field, normalized to the same display size. Tiny planets stay tiny. Click a frame to inspect the original. These renders compare <strong>scale and framing</strong>; nebula colors, contrast and fine detail are not a prediction of the view by eye.</p></div>
+      <section aria-labelledby="wide-title" class="cohort"><div class="cohort-heading"><div><span class="cohort-index">01</span><h3 id="wide-title">Wide stock eyepiece</h3></div><p>The longest included focal length. More context, less magnification.</p></div><div class="optics-grid" id="wide-grid"></div></section>
+      <section aria-labelledby="second-title" class="cohort"><div class="cohort-heading"><div><span class="cohort-index">02</span><h3 id="second-title">Second stock eyepiece</h3></div><p>The other included eyepiece. These are different magnifications, not equal-power tests.</p></div><div class="optics-grid" id="second-grid"></div></section>
+      <details class="notes"><summary>Conditions, assumptions & how to read this comparison</summary><div id="limitations"></div><p>Representative Warsaw coordinates and 100 m elevation are used for every image. Bortle 4/5 model your stated observing scenarios, not a measurement of central Warsaw. Each object uses one disclosed observing date shared by every instrument. The binocular has fixed 8× optics and is repeated as the same reference image in both rows. No image is enlarged to make the target fill the circle.</p><p>PowerSeeker’s 4 mm eyepiece is 175× with an estimated 30° apparent field. It may exceed useful power under real conditions. Existing field-stop settings for the Sky-Watcher eyepieces are unmeasured. Seeing, optical aberrations, hand shake, eye relief, alignment and dark adaptation are not simulated as an eyepiece-visibility forecast.</p><p>The planet’s size and phase, the Moon’s phase and Saturn’s ring tilt are date-dependent. Twilight and moonlight are listed separately from artificial skyglow. Galaxies and nebulae can show photographic textures in Stellarium that greatly exceed what is visible through a small instrument.</p></details>
+      <footer><span>Captured from the installed Stellarium 24.4 · no generated sky images</span><a href="manifest.json" download>Download capture metadata ↗</a></footer>
+    </main>
+  </div>
+  <dialog id="viewer" aria-labelledby="viewer-title"><div class="viewer-bar"><div><p id="viewer-object" class="eyebrow"></p><h3 id="viewer-title"></h3><p id="viewer-detail"></p></div><button id="close-viewer" class="icon-button" aria-label="Close image viewer">×</button></div><div class="viewer-stage"><button id="previous-image" class="icon-button previous" aria-label="Previous instrument">‹</button><div class="image-window"><img id="viewer-image" alt=""></div><button id="next-image" class="icon-button next" aria-label="Next instrument">›</button></div><div class="viewer-bottom"><button id="inspect">Center inspection: off</button><span id="inspection-note">Full field · optical magnification is unchanged</span><a id="download-image" download>Save original PNG ↗</a></div></dialog>
+  <noscript>This local gallery needs JavaScript enabled to select the object and compare the frames.</noscript>
+  <script src="data.js"></script><script src="app.js"></script>
+</body>
+</html>

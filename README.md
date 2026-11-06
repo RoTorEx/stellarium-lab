@@ -47,8 +47,9 @@ app's Save Settings button during a session, use this command before committing
 configuration and verify the password is empty. Never commit `.local/`.
 
 The `view` command preserves the observer location, time, ground and atmosphere
-settings. It uses an immediate camera direction rather than overlapping animated
-focus and ocular transitions, then verifies the applied equipment and camera.
+settings. It completes native object movements around the ocular transition,
+then verifies the applied equipment and camera. This avoids racing a direct
+camera assignment against the installed version's pending automatic movement.
 An object below the horizon can be invisible. Choose an object above the horizon
 or explicitly ask the agent to set a different observing date/time. The workflow
 does not silently change observing conditions to make a target visible.
@@ -151,3 +152,59 @@ Only this Mac and this installed version have been exercised. Another computer
 still requires cloning both repositories and running the link installer.
 
 API reference: [Stellarium 24.4 RemoteControl API](https://stellarium.org/doc/24.0/remoteControlApi.html).
+
+## Local eyepiece atlas
+
+Open `gallery/index.html` directly in a browser. The generated gallery is local
+and ignored by Git. It needs no server, account, build, package installation or
+internet connection: metadata is loaded from a local `data.js` script.
+
+The page compares six instruments on eleven objects: Moon, Pleiades, Jupiter,
+Saturn, Mars, Venus, Orion Nebula, Andromeda Galaxy, Hercules Cluster, Ring
+Nebula and Beehive Cluster. Select an object and Bortle 4 or 5. The first row
+uses each kit's widest stock eyepiece, and the second uses its other stock
+eyepiece. These are kit comparisons, not equal-magnification tests. The fixed
+8×42 binocular is repeated as the same reference in both rows. No Barlow is
+used. Click an image for the original and previous/next instrument controls;
+arrow keys navigate and Escape closes it. Optional 4× center inspection is a
+digital crop and adds no optical detail.
+
+Reproduce or resume the 242 unique native screenshots with the installed
+Stellarium running in an authenticated session:
+
+```sh
+python3 capture_atlas.py --output gallery --plan-only
+python3 capture_atlas.py --output gallery --resume
+python3 verify_atlas.py gallery
+python3 -m unittest test_atlas.py
+```
+
+`atlas_targets.json` owns the disclosed scene dates. The generator checks target
+altitude, frozen time, current coordinate transforms, optical selections, actual
+field of view, native Bortle readback and camera stability. It waits for complete
+PNG chunks and checksums before moving an asynchronous screenshot. Resume
+checks the date, rendering profile and file hash; it preserves valid captures.
+Do not manually change the app while capture is running. Frozen capture mode
+temporarily inhibits automatic camera movements and assigns the target's J2000
+direction after selecting the optics; it restores automatic movements on exit.
+This keeps delayed native ocular transitions from replacing the capture view.
+On macOS the generator activates Stellarium at scene boundaries to avoid
+occluded-window throttling. Its HTTP interface remains standard-library Python.
+
+The representative observer is Warsaw, 52.23° N, 21.01° E, 100 m. Bortle 4/5
+represent the requested observing scenarios, not a measurement of the city or
+the actual rural observing site. Every object has its own suitable date shared
+by all its instruments and sky scenarios; the page displays that date in Warsaw
+time, target altitude, twilight and moonlight. Captures use Stellarium 24.4,
+square 1536-pixel images, unscaled planets and normalized eyepiece circles.
+
+This is a **scale and framing atlas**. Stellarium does not turn its photographic
+nebula textures into a reliable naked-eye contrast simulation. Detail, color,
+resolution, seeing, shaky mounts and optical quality are not predicted. A
+PowerSeeker frame at 175× is not evidence it resolves more than a larger
+telescope at lower power. The PowerSeeker model and Vortex identification
+remain provisional; the PowerSeeker 4 mm apparent field is an explicit estimate.
+The original Sky-Watcher field stops are preserved, unmeasured configuration.
+
+Generated images, scene state and metadata remain in `gallery/`; diagnostics and
+credentials remain in `.local/`. Nothing in this capture workflow uploads them.

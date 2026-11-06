@@ -1,0 +1,90 @@
+[
+  {
+    "id": "moon",
+    "name": "Moon",
+    "target": "Moon",
+    "kind": "Solar system",
+    "at": "2026-11-18T18:00:00+01:00",
+    "note": "A waxing gibbous Moon provides both a full-disk framing reference and a visible terminator."
+  },
+  {
+    "id": "pleiades",
+    "name": "Pleiades",
+    "target": "M45",
+    "kind": "Open cluster",
+    "at": "2026-11-06T23:00:00+01:00",
+    "note": "A wide cluster: compare how much context remains around its bright members."
+  },
+  {
+    "id": "jupiter",
+    "name": "Jupiter",
+    "target": "Jupiter",
+    "kind": "Planet",
+    "at": "2027-01-08T03:00:00+01:00",
+    "note": "The wide eyepieces show a small disk. The second stock eyepieces provide very different magnifications across kits."
+  },
+  {
+    "id": "saturn",
+    "name": "Saturn",
+    "target": "Saturn",
+    "kind": "Planet",
+    "at": "2026-11-06T20:00:00+01:00",
+    "note": "Compare the apparent scale of the ring system. Ring tilt is specific to this observing date."
+  },
+  {
+    "id": "mars",
+    "name": "Mars",
+    "target": "Mars",
+    "kind": "Planet",
+    "at": "2027-02-06T00:30:00+01:00",
+    "note": "Mars changes apparent size strongly with date; this is one disclosed scene, not a year-round size."
+  },
+  {
+    "id": "venus",
+    "name": "Venus",
+    "target": "Venus",
+    "kind": "Planet",
+    "at": "2027-01-08T06:30:00+01:00",
+    "note": "The phase and disk size depend on date. Twilight may dominate over the artificial skyglow setting."
+  },
+  {
+    "id": "orion",
+    "name": "Orion Nebula",
+    "target": "M42",
+    "kind": "Emission nebula",
+    "at": "2027-01-07T22:00:00+01:00",
+    "note": "The rendered nebula texture is a framing reference. Its color and contrast are not a visual-observing forecast."
+  },
+  {
+    "id": "andromeda",
+    "name": "Andromeda Galaxy",
+    "target": "M31",
+    "kind": "Galaxy",
+    "at": "2026-11-06T21:00:00+01:00",
+    "note": "Its catalog extent is much larger than its bright core. Faint outer regions are strongly affected by real sky brightness."
+  },
+  {
+    "id": "hercules",
+    "name": "Hercules Cluster",
+    "target": "M13",
+    "kind": "Globular cluster",
+    "at": "2027-05-06T02:00:00+02:00",
+    "note": "Compare angular scale; rendered texture is not proof that the same stars will resolve visually."
+  },
+  {
+    "id": "ring",
+    "name": "Ring Nebula",
+    "target": "M57",
+    "kind": "Planetary nebula",
+    "at": "2027-05-06T01:30:00+02:00",
+    "note": "A compact target. A tiny or nearly invisible rendering at low power is meaningful; images are not automatically fitted to the object."
+  },
+  {
+    "id": "beehive",
+    "name": "Beehive Cluster",
+    "target": "M44",
+    "kind": "Open cluster",
+    "at": "2027-02-06T23:00:00+01:00",
+    "note": "A broad stellar target that complements the compact nebula and globular-cluster examples."
+  }
+]

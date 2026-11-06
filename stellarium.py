@@ -38,12 +38,21 @@ def profile_name(item):
 
 
 def request(path, data=None):
+    if path == "scripts/direct":
+        for _ in range(150):
+            if not request("scripts/status")["scriptIsRunning"]:
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("The previous native script did not finish")
     password = (LOCAL / "password").read_text().strip()
     headers = {"Authorization": "Basic " + base64.b64encode((":" + password).encode()).decode()}
     body = urllib.parse.urlencode(data).encode() if data is not None else None
     req = urllib.request.Request(BASE + path, data=body, headers=headers)
     with urllib.request.urlopen(req, timeout=5) as response:
         value = response.read().decode()
+    if path == "scripts/direct" and value.strip() != "ok":
+        raise RuntimeError(f"Stellarium rejected a native script: {value}")
     try:
         return json.loads(value)
     except json.JSONDecodeError:
@@ -102,7 +111,7 @@ def start():
     raise RuntimeError("Stellarium did not expose the authenticated API. Inspect its log.txt.")
 
 
-def view(telescope, eyepiece, target, hide_landscape=False, barlow=1):
+def view(telescope, eyepiece, target, hide_landscape=False, barlow=1, freeze_camera=False):
     stock_eyepieces = (20, 4) if telescope == 70 else (25, 10)
     if eyepiece is None:
         eyepiece = stock_eyepieces[0]
@@ -123,10 +132,10 @@ def view(telescope, eyepiece, target, hide_landscape=False, barlow=1):
            if field_stop > 0 else float(items["ocular"][oi]["afov"]) / magnification)
     return {"telescope": items["telescope"][ti], "eyepiece": items["ocular"][oi],
             "barlow": barlow, "magnification": magnification, "field_of_view_deg": fov,
-            **apply_view(ti, oi, li, target, hide_landscape)}
+            **apply_view(ti, oi, li, target, hide_landscape, freeze_camera)}
 
 
-def binocular_view(target, hide_landscape=False):
+def binocular_view(target, hide_landscape=False, freeze_camera=False):
     items = equipment()
     oi = next(i for i, o in items["ocular"].items() if profile_name(o) == BINOCULAR)
     # Oculars stores a complete binocular in its ocular list. Telescope and lens
@@ -137,11 +146,12 @@ def binocular_view(target, hide_landscape=False):
     return {"binocular": items["ocular"][oi], "telescope": None, "barlow": 1,
             "magnification": float(items["ocular"][oi]["efl"]),
             "field_of_view_deg": float(items["ocular"][oi]["afov"]),
-            **apply_view(ti, oi, -1, target, hide_landscape)}
+            **apply_view(ti, oi, -1, target, hide_landscape, freeze_camera)}
 
 
-def apply_view(ti, oi, li, target, hide_landscape=False):
+def apply_view(ti, oi, li, target, hide_landscape=False, freeze_camera=False):
     properties = request("stelproperty/list")
+    request("scripts/direct", {"code": "StelMovementMgr.setInhibitAllAutomoves(" + str(freeze_camera).lower() + ");"})
     if hide_landscape:
         for name in ("landscapeDisplayed", "fogDisplayed"):
             request("stelproperty/set", {"id": "LandscapeMgr." + name, "value": "false"})
@@ -155,17 +165,37 @@ def apply_view(ti, oi, li, target, hide_landscape=False):
         raise RuntimeError(f"Object was not found: {target}")
     ra, dec = math.radians(info["raJ2000"]), math.radians(info["decJ2000"])
     direction = [math.cos(dec) * math.cos(ra), math.cos(dec) * math.sin(ra), math.sin(dec)]
-    request("main/view", {"j2000": json.dumps(direction)})
+    # Let the native movement manager finish before changing the ocular.
+    # Directly assigning its direction can race an outstanding auto-move.
+    request("scripts/direct", {"code": "core.moveToSelectedObject(0.25);"})
+    time.sleep(0.5)
     for name, value in (("selectedTelescopeIndex", ti), ("selectedOcularIndex", oi),
                         ("selectedLensIndex", li), ("enableOcular", "true")):
         request("stelproperty/set", {"id": "Oculars." + name, "value": value})
-    time.sleep(0.5)
+    request("scripts/direct", {"code": "core.moveToSelectedObject(0.25);"})
+    if freeze_camera:
+        # A paused atlas uses an explicit camera, with auto-moves inhibited so
+        # a delayed Oculars transition cannot overwrite it during rendering.
+        request("main/view", {"j2000": json.dumps(direction)})
+    time.sleep(0.7)
     props = request("stelproperty/list")
     expected = {"selectedTelescopeIndex": int(ti), "selectedOcularIndex": int(oi),
                 "selectedLensIndex": int(li), "enableOcular": True}
     if any(props["Oculars." + k]["value"] != v for k, v in expected.items()):
         raise RuntimeError("Stellarium did not apply the requested optical combination.")
-    camera = request("main/view")
+    for _ in range(100):
+        camera = request("main/view")
+        info = request("objects/info?" + urllib.parse.urlencode({"name": target, "format": "json"}))
+        ra, dec = math.radians(info["raJ2000"]), math.radians(info["decJ2000"])
+        direction = [math.cos(dec)*math.cos(ra), math.cos(dec)*math.sin(ra), math.sin(dec)]
+        try:
+            vector = json.loads(camera["j2000"])
+            ready = all(math.isfinite(x) for x in vector) and sum(a*b for a,b in zip(vector,direction)) > 0.99999
+        except (ValueError, TypeError):
+            ready = False
+        if ready:
+            break
+        time.sleep(0.1)
     try:
         vector = json.loads(camera["j2000"])
         centered = all(math.isfinite(x) for x in vector) and sum(a*b for a,b in zip(vector, direction)) > 0.99999
