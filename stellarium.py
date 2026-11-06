@@ -17,6 +17,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 LOCAL = ROOT / ".local"
+EYEPIECES = json.loads((ROOT / "eyepieces.json").read_text())["eyepieces"]
 BASE = "http://127.0.0.1:8090/api/"
 CONFIG = ROOT.parents[3] / "config/dotfiles/stellarium/user"
 TELESCOPES = {
@@ -119,11 +120,16 @@ def start():
     raise RuntimeError("Stellarium did not expose the authenticated API. Inspect its log.txt.")
 
 
-def view(telescope, eyepiece, target, hide_landscape=False, barlow=1, freeze_camera=False, reducer=1):
+def view(telescope, eyepiece, target, hide_landscape=False, barlow=1, freeze_camera=False, reducer=1, upgrade=None):
+    product = next((p for p in EYEPIECES if p["id"] == upgrade), None)
+    if upgrade and (product is None or barlow != 1 or reducer != 1):
+        raise RuntimeError("Choose a known optional eyepiece without a Barlow or reducer")
     stock_pair = stock_eyepieces(telescope)
-    if eyepiece is None:
+    if product:
+        eyepiece = product["focal_mm"]
+    elif eyepiece is None:
         eyepiece = stock_pair[0]
-    if eyepiece not in stock_pair:
+    if not product and eyepiece not in stock_pair:
         raise RuntimeError(f"Stock eyepieces for this telescope: {stock_pair}")
     if barlow != 1 and telescope != 70:
         raise RuntimeError("The 3x Barlow is part of the PowerSeeker kit; other kits default to no Barlow.")
@@ -136,7 +142,9 @@ def view(telescope, eyepiece, target, hide_landscape=False, barlow=1, freeze_cam
               if profile_name(t) == TELESCOPES[telescope])
     ocular_prefix = "Celestron PowerSeeker" if telescope == 70 else "Sky-Watcher Photo" if telescope == "startravel102" else "Sky-Watcher."
     oi = next(i for i, o in items["ocular"].items()
-              if profile_name(o).startswith(ocular_prefix) and float(o["efl"]) == eyepiece)
+              if o["name"] == product["profile_name"]) if product else next(
+                  i for i, o in items["ocular"].items()
+                  if profile_name(o).startswith(ocular_prefix) and float(o["efl"]) == eyepiece)
     li = next(i for i, lens in items["lens"].items() if float(lens["multipler"]) == barlow) if barlow != 1 else -1
     if reducer != 1:
         li = next(i for i, lens in items["lens"].items()
@@ -211,6 +219,10 @@ def apply_view(ti, oi, li, target, hide_landscape=False, freeze_camera=False):
             ready = False
         if ready:
             break
+        if freeze_camera:
+            # Planet ephemerides can settle after the date acknowledgement.
+            # Reapply the fresh object coordinates instead of waiting on a stale aim.
+            request("main/view", {"j2000": json.dumps(direction)})
         time.sleep(0.1)
     try:
         vector = json.loads(camera["j2000"])
@@ -277,6 +289,7 @@ def main():
     instrument.add_argument("--telescope", type=lambda value: int(value) if value.isdecimal() else value, choices=tuple(TELESCOPES))
     instrument.add_argument("--binocular", choices=("vortex-8x42",))
     show.add_argument("--eyepiece", type=int, help="Stock focal length in mm; defaults to the widest stock eyepiece")
+    show.add_argument("--upgrade", choices=[p["id"] for p in EYEPIECES], help="Optional1.25-inch eyepiece profile")
     show.add_argument("--reducer", type=float, choices=(1, .63, .5), default=1,
                       help="Idealized MAK reducer factor; hardware compatibility is unverified")
     show.add_argument("--barlow", type=int, choices=(1, 3), default=1)
@@ -298,11 +311,13 @@ def main():
             result = equipment()
         elif args.command == "view":
             if args.binocular:
-                if args.eyepiece is not None or args.barlow != 1 or args.reducer != 1:
+                if args.eyepiece is not None or args.barlow != 1 or args.reducer != 1 or args.upgrade:
                     raise RuntimeError("Binoculars have fixed magnification; omit --eyepiece, --barlow and --reducer.")
                 result = binocular_view(args.object, args.hide_landscape)
             else:
-                result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow, reducer=args.reducer)
+                if args.upgrade and args.eyepiece is not None:
+                    raise RuntimeError("Choose --upgrade or --eyepiece, not both")
+                result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow, reducer=args.reducer, upgrade=args.upgrade)
         elif args.command == "scene":
             result = scene(args.at)
         elif args.command == "tour":

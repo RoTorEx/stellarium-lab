@@ -74,6 +74,19 @@ class CaptureChecks(unittest.TestCase):
                 st.view("explorer130",25,"M45",reducer=.5)
             equipment.assert_not_called()
 
+    def test_optional_same_focal_length_selects_product_identity(self):
+        equipment={"telescope":{"1":{"name":"[Compare] Sky-Watcher. MAK 102/1300","focalLength":"1300"}},
+                   "ocular":{"7":{"name":"[Compare] Sky-Watcher SWA-58 8mm","efl":"8","afov":"58","fieldStop":"0"},
+                             "8":{"name":"[Compare] TS-Optics N-ED 8mm","efl":"8","afov":"60","fieldStop":"0"}},"lens":{}}
+        with patch.object(st,"equipment",return_value=equipment),patch.object(st,"apply_view",return_value={}) as apply:
+            first=st.view(102,None,"Jupiter",upgrade="swa8")
+            first_index=apply.call_args.args[1]
+            second=st.view(102,None,"Jupiter",upgrade="ned8")
+            second_index=apply.call_args.args[1]
+        self.assertNotEqual(first_index,second_index)
+        self.assertEqual(first["magnification"],second["magnification"])
+        self.assertLess(first["field_of_view_deg"],second["field_of_view_deg"])
+
     def test_identical_optics_can_render_identically_but_different_scenes_cannot(self):
         first={"sha256":"same","instrument":"heritage130","object":"ring","bortle":5,"cohort":"wide","magnification":26,"field_of_view_deg":1.939,"scene":{"at":"2027-05-06T01:30:00+02:00"}}
         second=dict(first,instrument="explorer130")

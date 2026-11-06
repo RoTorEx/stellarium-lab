@@ -1,0 +1,102 @@
+{
+  "checked_at": "2026-11-06",
+  "price_note": "Listed prices include the displayed local VAT. Delivery, destination VAT and availability can change. No currency conversion is implied.",
+  "barrel_inch": 1.25,
+  "capture_objects": [
+    "moon",
+    "pleiades",
+    "jupiter",
+    "saturn"
+  ],
+  "eyepieces": [
+    {
+      "id": "bcp32",
+      "name": "Baader Classic Plossl 32mm",
+      "focal_mm": 32,
+      "afov_deg": 50,
+      "field_stop_mm": 26,
+      "eye_relief_mm": 21,
+      "price": "EUR 68",
+      "availability": "Check current stock",
+      "url": "https://www.baader-planetarium.com/en/classic-ploessl-32mm-1-25inch-eyepiece-ht-mc-w-aux-spacer-tube-and-winged-rubber-eyecup.html",
+      "verdict": "Wide-field option",
+      "priority": "Useful for finding targets and brighter extended views. About 18% wider field diameter than the inherited Super 25 mm profile, not twice as wide.",
+      "profile_name": "[Compare] Baader Classic Plossl 32mm"
+    },
+    {
+      "id": "ned12",
+      "name": "TS-Optics N-ED 12mm",
+      "focal_mm": 12,
+      "afov_deg": 60,
+      "field_stop_mm": 0,
+      "eye_relief_mm": 16,
+      "price": "EUR 86.90",
+      "availability": "Check current stock",
+      "url": "https://www.teleskop-express.de/de/teleskop-zubehoer-5/okulare-295/okulare-1-25-zoll-weitwinkel-ultraweitwinkel-70/ts-optics-1-25-ed-okular-12-mm-60-ebenes-bildfeld-hoher-kontrast-4931",
+      "verdict": "Moderate-power comfort",
+      "priority": "108\u00d7 on MAK 102: useful when the air will not support more. Optional comfort upgrade; the stock 10 mm already covers a nearby 130\u00d7.",
+      "profile_name": "[Compare] TS-Optics N-ED 12mm"
+    },
+    {
+      "id": "swa8",
+      "name": "Sky-Watcher SWA-58 8mm",
+      "focal_mm": 8,
+      "afov_deg": 58,
+      "field_stop_mm": 0,
+      "eye_relief_mm": null,
+      "price": "PLN 279",
+      "availability": "Listed in stock, including Warsaw",
+      "url": "https://deltaoptical.pl/okular-sky-watcher-swa-58-8-mm-1-25",
+      "verdict": "First planetary candidate",
+      "priority": "162.5\u00d7: a sensible next step beyond the stock 10 mm when seeing is steady. Choose this or the N-ED 8; buying both duplicates magnification.",
+      "profile_name": "[Compare] Sky-Watcher SWA-58 8mm"
+    },
+    {
+      "id": "ned8",
+      "name": "TS-Optics N-ED 8mm",
+      "focal_mm": 8,
+      "afov_deg": 60,
+      "field_stop_mm": 0,
+      "eye_relief_mm": 16,
+      "price": "EUR 84",
+      "availability": "Listed expected from 2026-12-01",
+      "url": "https://www.teleskop-express.de/de/teleskop-zubehoer-5/okulare-295/okulare-1-25-zoll-weitwinkel-ultraweitwinkel-70/ts-optics-1-25-ed-okular-8-mm-60-ebenes-bildfeld-hoher-kontrast-4934",
+      "verdict": "Alternative 8 mm",
+      "priority": "Same 162.5\u00d7 as SWA 8, with a 60-degree field and specified 16 mm eye relief. The render cannot compare brand sharpness or comfort.",
+      "profile_name": "[Compare] TS-Optics N-ED 8mm"
+    },
+    {
+      "id": "swa7",
+      "name": "Sky-Watcher SWA-58 7mm",
+      "focal_mm": 7,
+      "afov_deg": 58,
+      "field_stop_mm": 0,
+      "eye_relief_mm": null,
+      "price": "PLN 259",
+      "availability": "On request; seller lists a wait of weeks",
+      "url": "https://deltaoptical.pl/en/eyepiece-swa-58-7-mm",
+      "verdict": "Steady-air option",
+      "priority": "185.7\u00d7 with a 0.55 mm exit pupil. More demanding of seeing, focus and mount vibration; not the first purchase.",
+      "profile_name": "[Compare] Sky-Watcher SWA-58 7mm"
+    },
+    {
+      "id": "bco6",
+      "name": "Baader Classic Ortho 6mm",
+      "focal_mm": 6,
+      "afov_deg": 52,
+      "field_stop_mm": 5,
+      "eye_relief_mm": 5,
+      "price": "EUR 73",
+      "availability": "Check current stock",
+      "url": "https://www.baader-planetarium.com/en/accessories/optical-accessories/eyepieces/q-turret-classic-ortho-ploessl.html",
+      "verdict": "Not a first MAK 102 purchase",
+      "priority": "216.7\u00d7 exceeds the nominal 2\u00d7 aperture guideline of 204\u00d7. A 0.47 mm exit pupil and 5 mm eye relief are demanding; a bigger render need not contain extra visible detail.",
+      "profile_name": "[Compare] Baader Classic Ortho 6mm"
+    }
+  ],
+  "sources": [
+    "https://www.skywatcher.com/faq/",
+    "https://britastro.org/section_information_/saturn-uranus-and-neptune-section-overview/observing-programme/saturn-observing-programme",
+    "https://britastro.org/section_information_/saturn-uranus-and-neptune-section-overview/saturn-apparition-notes/saturn-2026-apparition-notes"
+  ]
+}

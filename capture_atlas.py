@@ -27,13 +27,17 @@ INSTRUMENTS = [
     {"id":"heritage130","name":"Heritage 130P","kind":"Dobsonian","aperture":130,"telescope":130,"mount":"Tabletop Dobsonian"},
     {"id":"heritage150","name":"Heritage 150P","kind":"Dobsonian","aperture":150,"telescope":150,"mount":"Tabletop Dobsonian"},
 ]
+PLANNER = json.loads((ROOT / "eyepieces.json").read_text())
+UPGRADES = {"upgrade_"+p["id"]:p for p in PLANNER["eyepieces"]}
+
 REDUCERS = {"reducer063": .63, "reducer050": .5}
 
 
-def cohorts_for(instrument):
+def cohorts_for(instrument, object_id=None):
     if instrument["id"] == "vortex":
         return ("fixed",)
-    return ("wide", "second", *REDUCERS) if instrument["id"] in ("mak102", "mak127") else ("wide", "second")
+    base = ("wide", "second", *REDUCERS) if instrument["id"] in ("mak102", "mak127") else ("wide", "second")
+    return (*base, *UPGRADES) if instrument["id"] == "mak102" and object_id in PLANNER["capture_objects"] else base
 
 
 RENDER_PROFILE = "clean-circle-v2"
@@ -218,6 +222,7 @@ def main():
             "Each object has its own disclosed date; all instruments and Bortle variants for that object share the same scene."]}
     manifest["instruments"]=[dict(instrument) for instrument in INSTRUMENTS]
     manifest["objects"]=TARGETS
+    manifest["eyepiece_planner"]=PLANNER
     manifest["comparison"]="Two stock-eyepiece cohorts plus idealized MAK reducer rows; Barlow disabled. Fixed binocular reference."
     reducer_note="MAK 0.63x/0.5x reducer rows show nominal geometry only. Hardware compatibility, back focus, vignetting and field illumination are unverified. The Celestron SCT 0.63x reducer is not compatible with Maksutov tubes."
     photo_note="Startravel Photo 20/10 mm apparent fields are assumed at 50 degrees; exact field framing needs confirmation. Explorer 130PS and Heritage 130P share nominal 130/650 optics; mount ergonomics are not simulated."
@@ -240,7 +245,7 @@ def main():
             for bortle in args.bortle:
                 luminance=set_bortle(bortle)
                 for instrument in INSTRUMENTS:
-                    cohorts=cohorts_for(instrument)
+                    cohorts=cohorts_for(instrument,target["id"])
                     for cohort in cohorts:
                         key=f'{target["id"]}-b{bortle}-{instrument["id"]}-{cohort}'
                         destination=output/"images"/(key+".png")
@@ -252,8 +257,9 @@ def main():
                             state=st.binocular_view(target["target"],freeze_camera=True);eyepiece=None
                         else:
                             telescope=instrument["telescope"]
-                            eyepiece=st.stock_eyepieces(telescope)[1 if cohort=="second" else 0]
-                            state=st.view(telescope,eyepiece,target["target"],freeze_camera=True,reducer=reducer)
+                            product=UPGRADES.get(cohort)
+                            eyepiece=product["focal_mm"] if product else st.stock_eyepieces(telescope)[1 if cohort=="second" else 0]
+                            state=st.view(telescope,eyepiece,target["target"],freeze_camera=True,reducer=reducer,upgrade=product["id"] if product else None)
                         # Oculars resets several settings when changing a preset.
                         set_property("StelObjectMgr.objectPointerVisibility",False)
                         time.sleep(args.settle)

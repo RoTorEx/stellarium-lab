@@ -7,7 +7,7 @@ import json
 import math
 from pathlib import Path
 
-from capture_atlas import INSTRUMENTS, TARGETS, REDUCERS, cohorts_for, inspect_png
+from capture_atlas import INSTRUMENTS, TARGETS, REDUCERS, UPGRADES, PLANNER, cohorts_for, inspect_png
 
 
 def check_repeated_images(captures):
@@ -30,12 +30,13 @@ def verify(output):
     expected = {
         f'{obj["id"]}-b{bortle}-{instrument["id"]}-{cohort}'
         for obj in TARGETS for bortle in (4, 5) for instrument in INSTRUMENTS
-        for cohort in cohorts_for(instrument)
+        for cohort in cohorts_for(instrument,obj["id"])
     }
     actual = [c["id"] for c in captures]
     assert len(actual) == len(set(actual)), "Duplicate capture identities"
     assert set(actual) == expected, f"Missing: {sorted(expected-set(actual))}; unexpected: {sorted(set(actual)-expected)}"
     assert manifest["objects"] == TARGETS
+    assert manifest["eyepiece_planner"] == PLANNER
     assert [i["id"] for i in manifest["instruments"]] == [i["id"] for i in INSTRUMENTS]
     assert sum(bool(i.get("shortlist")) for i in manifest["instruments"]) == 4
     dates = {obj["id"]: obj["at"] for obj in TARGETS}
@@ -61,10 +62,14 @@ def verify(output):
         else:
             telescope = next(i["telescope"] for i in INSTRUMENTS if i["id"] == capture["instrument"])
             focal = {70:700,102:1300,127:1500,130:650,150:750,"explorer130":650,"startravel102":500}[telescope]
-            ocular = (4 if telescope == 70 else 10) if capture["cohort"] == "second" else (20 if telescope in (70,"startravel102") else 25)
+            product = UPGRADES.get(capture["cohort"])
+            ocular = product["focal_mm"] if product else ((4 if telescope == 70 else 10) if capture["cohort"] == "second" else (20 if telescope in (70,"startravel102") else 25))
             assert capture["eyepiece_mm"] == ocular
             assert math.isclose(capture["magnification"], focal / ocular * reduction, rel_tol=1e-10)
-            if telescope == 70:
+            if product:
+                assert capture["instrument"] == "mak102" and capture["object"] in PLANNER["capture_objects"]
+                fov = product["field_stop_mm"] / focal * 57.3 if product["field_stop_mm"] else product["afov_deg"] / (focal/ocular)
+            elif telescope == 70:
                 fov = (50 if ocular == 20 else 30) / (focal / ocular)
             elif telescope == "startravel102":
                 fov = 50 / (focal / ocular)
@@ -77,9 +82,9 @@ def verify(output):
     check_repeated_images(captures)
     script = (output / "data.js").read_text()
     assert json.loads(script.removeprefix("window.ATLAS_DATA = ").strip().removesuffix(";")) == manifest
-    for name in ("index.html", "style.css", "app.js"):
+    for name in ("index.html", "style.css", "app.js", "eyepieces.js"):
         assert (output / name).is_file()
-    print(f"Verified {len(captures)} complete PNGs, 11 objects, 8 instruments, stock cohorts, four MAK reducer scenarios and Bortle 4/5.")
+    print(f"Verified {len(captures)} complete PNGs, 11 objects, 8 instruments, stock cohorts, MAK reducer scenarios, optional eyepieces and Bortle 4/5.")
 
 
 if __name__ == "__main__":

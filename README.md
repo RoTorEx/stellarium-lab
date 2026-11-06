@@ -169,7 +169,7 @@ used. Click an image for the original and previous/next instrument controls;
 arrow keys navigate and Escape closes it. Optional 4× center inspection is a
 digital crop and adds no optical detail.
 
-Reproduce or resume the 418 unique native screenshots with the installed
+Reproduce or resume the 466 native screenshot files with the installed
 Stellarium running in an authenticated session:
 
 ```sh
@@ -259,3 +259,60 @@ reducer combinations for each of 11 objects under both Bortle scenarios. The
 original 242 screenshots are retained. Capture indices in old metadata describe
 the historical configuration; current equipment lookup uses profile identities
 so reindexing cannot select an unrelated telescope.
+
+## Optional eyepiece buying desk
+
+`eyepieces.json` owns six sourced optional 1.25-inch product profiles, displayed
+prices/availability checked 2026-11-06, and qualitative purchase priorities.
+The gallery's buying desk adds native MAK 102 screenshots for Moon, Pleiades,
+Jupiter and Saturn under both Bortle scenarios (48 additions;466 total files).
+Stock 10 mm images are reused as a 130 x reference. All 418 earlier captures remain.
+The table always works, while new screenshots are limited to these four targets.
+
+The six options are Baader Classic Plossl 32 (EUR 68), TS N-ED 12 (EUR 86.90),
+Sky-Watcher SWA-58 8 (PLN 279), TS N-ED 8 (EUR 84), Sky-Watcher SWA-58 7 (PLN 259),
+and Baader Classic Ortho 6 (EUR 73). Prices retain the seller's currency and
+listed VAT; destination VAT/shipping and stock can change. The two 8 mm products
+are alternatives with the same 162.5 x power, not a recommended pair. TS N-ED 8 was
+listed for 2026-12-01, while SWA 8 was listed in stock in Warsaw. Follow the
+product links in the UI for current facts. Standard 1.25-inch barrels are
+reusable in compatible telescope focusers/diagonals; the Vortex is fixed-optics.
+
+```sh
+python3 stellarium.py view --telescope 102 --upgrade swa8 --object Jupiter
+python3 stellarium.py view --telescope explorer130 --upgrade ned8 --object Saturn
+python3 capture_atlas.py --output gallery --only moon pleiades jupiter saturn --resume
+python3 verify_atlas.py gallery
+```
+
+The numeric selector identifies the
+MAK, while `--upgrade` selects an exact optional product. Optional eyepieces
+cannot be combined with reducer/Barlow flags in this workflow. Other standard
+stock presets keep their existing behavior. Upgrade images are identified by
+`upgrade_<product-id>` cohorts. Their viewer arrows move between eyepieces.
+
+For the 102/1300 MAK:32 mm gives 40.625 x;12 mm 108.33 x;8 mm 162.5 x;7 mm 185.71 x;
+6 mm 216.67 x. Exit pupil is 102 divided by power. The extended-object brightness
+ratio relative to stock 10 mm is the squared ratio of exit pupils, ignoring
+transmission:8 mm 64%,7 mm 49%,6 mm 36%. These are geometric comparisons, not a
+contrast, stellar brightness or detail forecast. The manufacturer's approximate
+2 x aperture-in-mm guideline is 204 x, not a nightly target or a hard visibility
+threshold.6 mm exceeds it and has only 5 mm eye relief; it is not the first MAK 102
+purchase recommended. Stock 10 mm can already show Jupiter's two main belts in
+steady air. Cassini's Division can be detected with small apertures in favorable
+conditions, particularly at the ring ansae, but thin 2026 rings make it harder.
+The UI includes educational SVG anatomy diagrams distinct from native images.
+
+The Baader manufacturer publishes field stops 26 mm (32 mm Plossl) and 5 mm (6 mm
+Ortho), which take precedence over AFOV/power in Stellarium. Other product
+fields use the AFOV approximation; unknown field stops are stored as zero,
+not invented. The 32 mm field is 1.146 deg, only about 18% wider than the inherited
+Super 25 mm field, and smaller than the full Pleiades extent. For eyeglasses,
+compare the specified 21 mm/16 mm eye relief against the Ortho 6's 5 mm; exact SWA
+eye relief was not verified. Eyepiece brand quality, seeing, diffraction,
+thermal equilibration and shaky mounts are absent from the screenshot model.
+
+Primary observing references: [Sky-Watcher FAQ](https://www.skywatcher.com/faq/),
+[BAA Saturn programme](https://britastro.org/section_information_/saturn-uranus-and-neptune-section-overview/observing-programme/saturn-observing-programme),
+[BAA2026 Saturn notes](https://britastro.org/section_information_/saturn-uranus-and-neptune-section-overview/saturn-apparition-notes/saturn-2026-apparition-notes).
+Product links and provenance are in `eyepieces.json`.

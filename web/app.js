@@ -3,7 +3,8 @@
   'use strict';
   const data = window.ATLAS_DATA;
   if (!data) { document.querySelector('main').textContent = 'Capture data is missing. Run capture_atlas.py first.'; return; }
-  const initialObject = data.captures.some(c => c.object === 'pleiades' && c.bortle === 5) ? 'pleiades' : (data.captures[0]?.object || data.objects[0].id);
+  const requestedObject = new URLSearchParams(location.search).get('object');
+  const initialObject = data.objects.some(o=>o.id===requestedObject) ? requestedObject : data.captures.some(c => c.object === 'pleiades' && c.bortle === 5) ? 'pleiades' : (data.captures[0]?.object || data.objects[0].id);
   const state = { object: initialObject, bortle: 5, filter: 'shortlist', viewer: null, inspection: false };
   const $ = id => document.getElementById(id);
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -25,7 +26,7 @@
     }).join('');
     document.querySelectorAll('[data-object]').forEach(button => button.addEventListener('click', () => { state.object = button.dataset.object; render(); }));
   }
-  const cohortLabel = cohort => ({wide:"Wide stock",second:"Second stock",reducer063:"25 mm + nominal 0.63× reducer",reducer050:"25 mm + nominal 0.5× reducer"}[cohort]);
+  const cohortLabel = cohort => ({wide:"Wide stock",second:"Second stock",reducer063:"25 mm + nominal 0.63× reducer",reducer050:"25 mm + nominal 0.5× reducer"}[cohort] || data.eyepiece_planner?.eyepieces.find(p=>"upgrade_"+p.id===cohort)?.name || cohort);
   function renderCards(cohort, instruments = instrumentList()) {
     return instruments.map(instrument => {
       const c = captureFor(instrument,cohort), fixed = instrument.id === 'vortex';
@@ -57,6 +58,10 @@
     document.querySelectorAll('[data-filter]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.filter===state.filter)));
     document.querySelectorAll('[data-instrument]').forEach(b=>b.addEventListener('click',()=>openViewer(b.dataset.instrument,b.dataset.cohort)));
     document.title=`${o.name} · The eyepiece atlas`;
+    document.documentElement.dataset.object=state.object;
+    document.documentElement.dataset.bortle=state.bortle;
+    document.documentElement.dataset.filter=state.filter;
+    window.dispatchEvent(new CustomEvent("atlas:render",{detail:{object:state.object,bortle:state.bortle,filter:state.filter}}));
   }
   function openViewer(instrumentId,cohort) {
     const instrument=data.instruments.find(i=>i.id===instrumentId), c=captureFor(instrument,cohort); if(!c)return;
@@ -66,15 +71,20 @@
     $('viewer-detail').textContent=`Bortle ${state.bortle} · ${timeLabel(c.scene.at)} · ${c.width} × ${c.height} original pixels${c.reducer && c.reducer!==1 ? " · IDEALIZED REDUCER: compatibility and edge illumination unverified" : ""}`;
     $('viewer-image').src=c.image; $('viewer-image').alt=`${target().name} through ${instrument.name}`;
     $('download-image').href=c.image; $('download-image').download=c.image.split('/').pop();
+    const upgrade=cohort.startsWith("upgrade_");
+    $("previous-image").setAttribute("aria-label",upgrade?"Previous eyepiece":"Previous instrument");
+    $("next-image").setAttribute("aria-label",upgrade?"Next eyepiece":"Next instrument");
+    if(upgrade) $("viewer-detail").textContent+=" · SCALE ONLY: no seeing, diffraction or brand sharpness simulation";
     setInspection(false); if(!$('viewer').open)$('viewer').showModal();
   }
   function setInspection(on) { state.inspection=on; $('viewer-image').style.setProperty('--inspection',on?4:1); $('inspect').textContent=`Center inspection: ${on?'4× crop':'off'}`; $('inspection-note').textContent=on?'4× image crop · this adds no optical detail or magnification':'Full field · optical magnification is unchanged'; }
-  function moveViewer(delta) { if(!state.viewer)return; const list=instrumentList().filter(i=>captureFor(i,state.viewer.cohort)), index=list.findIndex(i=>i.id===state.viewer.instrumentId); openViewer(list[(index+delta+list.length)%list.length].id,state.viewer.cohort); }
+  function moveViewer(delta) { if(!state.viewer)return; if(state.viewer.cohort.startsWith("upgrade_")){const products=data.eyepiece_planner.eyepieces,index=products.findIndex(p=>"upgrade_"+p.id===state.viewer.cohort);openViewer("mak102","upgrade_"+products[(index+delta+products.length)%products.length].id);return;} const list=instrumentList().filter(i=>captureFor(i,state.viewer.cohort)), index=list.findIndex(i=>i.id===state.viewer.instrumentId); openViewer(list[(index+delta+list.length)%list.length].id,state.viewer.cohort); }
   document.querySelectorAll('[data-bortle]').forEach(b=>b.addEventListener('click',()=>{state.bortle=Number(b.dataset.bortle);render();}));
   document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{state.filter=b.dataset.filter;render();}));
   $('close-viewer').addEventListener('click',()=>$('viewer').close());
   $('previous-image').addEventListener('click',()=>moveViewer(-1)); $('next-image').addEventListener('click',()=>moveViewer(1));
   $('inspect').addEventListener('click',()=>setInspection(!state.inspection));
   document.addEventListener('keydown',event=>{if(!$('viewer').open)return;if(event.key==='ArrowLeft'){event.preventDefault();moveViewer(-1);}if(event.key==='ArrowRight'){event.preventDefault();moveViewer(1);}});
+  window.ATLAS_VIEWER={open:openViewer,selectObject:id=>{state.object=id;render();}};
   render();
 })();
