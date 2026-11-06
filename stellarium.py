@@ -26,6 +26,15 @@ TELESCOPES = {
     130: "Sky-Watcher Heritage 130P 130/650",
     150: "Sky-Watcher Heritage 150P 150/750",
 }
+BINOCULAR = "Vortex Diamondback 8x42"
+
+
+def profile_name(item):
+    name = item["name"]
+    for tag in ("[Compare] ", "[Built-in] ", "[Existing] ", "[Legacy] "):
+        if name.startswith(tag):
+            return name[len(tag):]
+    return name
 
 
 def request(path, data=None):
@@ -103,11 +112,35 @@ def view(telescope, eyepiece, target, hide_landscape=False, barlow=1):
         raise RuntimeError("The 3x Barlow is part of the PowerSeeker kit; other kits default to no Barlow.")
     items = equipment()
     ti = next(i for i, t in items["telescope"].items()
-              if t["name"] == TELESCOPES[telescope])
+              if profile_name(t) == TELESCOPES[telescope])
     ocular_prefix = "Celestron PowerSeeker" if telescope == 70 else "Sky-Watcher."
     oi = next(i for i, o in items["ocular"].items()
-              if o["name"].startswith(ocular_prefix) and float(o["efl"]) == eyepiece)
+              if profile_name(o).startswith(ocular_prefix) and float(o["efl"]) == eyepiece)
     li = next(i for i, lens in items["lens"].items() if float(lens["multipler"]) == barlow) if barlow != 1 else -1
+    magnification = float(items["telescope"][ti]["focalLength"]) / eyepiece * barlow
+    field_stop = float(items["ocular"][oi]["fieldStop"])
+    fov = (field_stop / (float(items["telescope"][ti]["focalLength"]) * barlow) * 57.3
+           if field_stop > 0 else float(items["ocular"][oi]["afov"]) / magnification)
+    return {"telescope": items["telescope"][ti], "eyepiece": items["ocular"][oi],
+            "barlow": barlow, "magnification": magnification, "field_of_view_deg": fov,
+            **apply_view(ti, oi, li, target, hide_landscape)}
+
+
+def binocular_view(target, hide_landscape=False):
+    items = equipment()
+    oi = next(i for i, o in items["ocular"].items() if profile_name(o) == BINOCULAR)
+    # Oculars stores a complete binocular in its ocular list. Telescope and lens
+    # parameters are ignored by the plugin in this mode.
+    ti = request("stelproperty/list")["Oculars.selectedTelescopeIndex"]["value"]
+    if ti < 0:
+        ti = 0
+    return {"binocular": items["ocular"][oi], "telescope": None, "barlow": 1,
+            "magnification": float(items["ocular"][oi]["efl"]),
+            "field_of_view_deg": float(items["ocular"][oi]["afov"]),
+            **apply_view(ti, oi, -1, target, hide_landscape)}
+
+
+def apply_view(ti, oi, li, target, hide_landscape=False):
     properties = request("stelproperty/list")
     if hide_landscape:
         for name in ("landscapeDisplayed", "fogDisplayed"):
@@ -140,14 +173,24 @@ def view(telescope, eyepiece, target, hide_landscape=False, barlow=1):
         centered = False
     if not centered:
         raise RuntimeError("The camera is not centered on the target. Restart Stellarium before retrying.")
-    return {"telescope": items["telescope"][ti], "eyepiece": items["ocular"][oi],
-            "barlow": barlow,
-            "magnification": float(items["telescope"][ti]["focalLength"]) / eyepiece * barlow,
-            "live": {"Oculars." + k: props["Oculars." + k]["value"] for k in expected},
+    return {"live": {"Oculars." + k: props["Oculars." + k]["value"] for k in expected},
             "camera": camera,
             "target": {"name": target, "above_horizon": info.get("above-horizon"),
                        "altitude_deg": info.get("altitude")},
             "view": request("main/status")["view"]}
+
+
+def tour(target, seconds):
+    if not math.isfinite(seconds) or seconds < 0:
+        raise RuntimeError("--seconds must be a finite nonnegative number")
+    results = []
+    for telescope in (None, 70, 102, 127, 130, 150):
+        result = binocular_view(target) if telescope is None else view(telescope, None, target)
+        results.append(result)
+        name = result.get("binocular", result.get("telescope"))["name"]
+        print(f'{name}: {result["magnification"]:g}x, {result["field_of_view_deg"]:.2f} deg', file=sys.stderr, flush=True)
+        time.sleep(seconds)
+    return results
 
 
 def scene(at):
@@ -164,13 +207,29 @@ def scene(at):
     return {"requested_at": instant.isoformat(), "time": status["time"], "location": status["location"]}
 
 
+def quit_session():
+    result = request("scripts/direct", {"code": 'RemoteControl.setFlagAutoStart(false); RemoteControl.setPassword(""); RemoteControl.setFlagUsePassword(false); RemoteControl.saveSettings(); core.quitStellarium();'})
+    if sys.platform == "darwin":
+        for _ in range(80):
+            process = subprocess.run(["pgrep", "-x", "stellarium"], capture_output=True)
+            if process.returncode == 1:
+                return result
+            if process.returncode != 0:
+                raise RuntimeError("Could not verify Stellarium shutdown; check the process before editing configuration.")
+            time.sleep(0.25)
+        raise RuntimeError("Stellarium is still shutting down. Wait before editing configuration.")
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("start", "status", "equipment", "quit"):
+    for name in ("start", "status", "equipment", "quit", "menu"):
         commands.add_parser(name)
     show = commands.add_parser("view")
-    show.add_argument("--telescope", type=int, choices=tuple(TELESCOPES), required=True)
+    instrument = show.add_mutually_exclusive_group(required=True)
+    instrument.add_argument("--telescope", type=int, choices=tuple(TELESCOPES))
+    instrument.add_argument("--binocular", choices=("vortex-8x42",))
     show.add_argument("--eyepiece", type=int, help="Stock focal length in mm; defaults to the widest stock eyepiece")
     show.add_argument("--barlow", type=int, choices=(1, 3), default=1)
     show.add_argument("--object", default="Moon")
@@ -178,6 +237,9 @@ def main():
                       help="Hide landscape and fog for optical comparison; preserve location and time")
     prepare = commands.add_parser("scene", help="Set and freeze an observing time for repeatable comparisons")
     prepare.add_argument("--at", required=True, help="ISO 8601 date and time including its UTC offset")
+    compare = commands.add_parser("tour", help="Show six complete wide-field presets without manual ocular selection")
+    compare.add_argument("--object", default="Moon")
+    compare.add_argument("--seconds", type=float, default=5)
     args = parser.parse_args()
     try:
         if args.command == "start":
@@ -187,11 +249,20 @@ def main():
         elif args.command == "equipment":
             result = equipment()
         elif args.command == "view":
-            result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow)
+            if args.binocular:
+                if args.eyepiece is not None or args.barlow != 1:
+                    raise RuntimeError("Binoculars have fixed magnification; omit --eyepiece and --barlow.")
+                result = binocular_view(args.object, args.hide_landscape)
+            else:
+                result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow)
         elif args.command == "scene":
             result = scene(args.at)
+        elif args.command == "tour":
+            result = tour(args.object, args.seconds)
+        elif args.command == "menu":
+            result = request("stelaction/do", {"id": "actionShow_Ocular_Menu"})
         else:
-            result = request("scripts/direct", {"code": 'RemoteControl.setFlagAutoStart(false); RemoteControl.setPassword(""); RemoteControl.setFlagUsePassword(false); RemoteControl.saveSettings(); core.quitStellarium();'})
+            result = quit_session()
         print(json.dumps(result, indent=2, ensure_ascii=False))
     except (OSError, RuntimeError, KeyError, ValueError, StopIteration, urllib.error.URLError) as exc:
         parser.exit(1, f"{exc}\n")

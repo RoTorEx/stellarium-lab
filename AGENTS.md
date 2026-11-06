@@ -4,6 +4,9 @@ Personal agent workflow for exploring the sky and comparing telescope/eyepiece
 combinations in the installed Stellarium desktop application.
 
 - Read `README.md` for operation, equipment, and current verification limits.
+- Use `docs/optics.md` for complete wide-field presets and observing explanations.
+  Prefer `view` or `tour` to manually mixing a telescope, ocular and lens. A
+  binocular is a complete ocular-list entry and uses no separate telescope.
 - Shared application state belongs to `Development/config/dotfiles/stellarium/`.
   Do not create a second configuration copy here.
 - Work personally. Preserve existing equipment, observer settings, and user data.

@@ -8,6 +8,13 @@ The shared application configuration belongs to the separate `RoTorEx/config`
 repository at `Development/config/dotfiles/stellarium/`. This project owns the
 workflow and API helper, not a second copy of the application state.
 
+For the meaning of Telescope/Ocular/Lens, the Vortex binocular, grouped device
+lists, and Moon/Pleiades/planet comparisons, read the [optical guide](docs/optics.md).
+`view` selects a complete stock combination; `tour --object Moon` displays all
+six wide-field presets in turn. **Alt/Option+O** opens Stellarium's native
+selection menu. Owned `[Existing]` instruments form the first block,
+`[Compare]` candidates follow as one block, then `[Legacy]` and `[Built-in]`.
+
 ## Setup and operation
 
 Keep this checkout at `Development/personal/projects/space/stellarium-lab` beside
@@ -129,6 +136,12 @@ These examples are sequential alternatives; leave the desired view selected.
   camera direction, and the target above the horizon checked through the API.
   The earlier MAK setup was also exercised on the Moon, Saturn and Polaris.
 - Telescope and eyepiece selections persisted through a clean quit/restart.
+- Grouped profiles were reindexed with all old optical fields and current
+  selections preserved by identity. Five telescope presets, 12 stock telescope
+  combinations and the Vortex 8x42 binocular were exercised after migration.
+- The binocular's field remained unchanged when the hidden telescope changed.
+- `quit` now waits for the macOS process to finish writing configuration before
+  returning, preventing a later exit write from overwriting offline edits.
 - Authenticated reads worked; unauthenticated requests received HTTP 401.
 - The installer was checked for backup preservation, repeat invocation, and
   refusal to replace an unrelated link. The config repository's required
