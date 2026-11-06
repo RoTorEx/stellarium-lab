@@ -80,7 +80,8 @@ eyepiece aberrations and a physical mount connection are outside this workflow.
   edits. Logs/output stay local; all other imported user files are tracked.
 - All four MAK/eyepiece combinations were selected through the live API, with
   ocular mode enabled and no Barlow/reducer. Camera directions were also
-  checked; Saturn above the horizon was used for the final visual check.
+  checked. Polaris was visibly centered in an application screenshot; Saturn
+  was also exercised through the API above the horizon.
 - Telescope and eyepiece selections persisted through a clean quit/restart.
 - Authenticated reads worked; unauthenticated requests received HTTP 401.
 - The installer was checked for backup preservation, repeat invocation, and
