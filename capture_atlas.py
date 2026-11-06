@@ -19,12 +19,23 @@ ROOT = Path(__file__).resolve().parent
 TARGETS = json.loads((ROOT / "atlas_targets.json").read_text())
 INSTRUMENTS = [
     {"id":"vortex","name":"Vortex 8×42","kind":"Binocular","aperture":42},
-    {"id":"power70","name":"PowerSeeker 70EQ","kind":"Refractor","aperture":70,"telescope":70},
-    {"id":"mak102","name":"MAK 102","kind":"Maksutov","aperture":102,"telescope":102},
-    {"id":"mak127","name":"MAK 127","kind":"Maksutov","aperture":127,"telescope":127},
-    {"id":"heritage130","name":"Heritage 130P","kind":"Dobsonian","aperture":130,"telescope":130},
-    {"id":"heritage150","name":"Heritage 150P","kind":"Dobsonian","aperture":150,"telescope":150},
+    {"id":"power70","name":"PowerSeeker 70EQ","kind":"Refractor","aperture":70,"telescope":70,"mount":"Equatorial mount"},
+    {"id":"mak102","name":"MAK 102","kind":"Maksutov","aperture":102,"telescope":102,"mount":"AZ Pronto + tripod","shortlist":True},
+    {"id":"mak127","name":"MAK 127","kind":"Maksutov","aperture":127,"telescope":127,"mount":"AZ5 + tripod","shortlist":True},
+    {"id":"explorer130","name":"Explorer 130PS","kind":"Newtonian","aperture":130,"telescope":"explorer130","mount":"AZ5 + tripod","shortlist":True},
+    {"id":"startravel102","name":"Startravel 102","kind":"Achromat","aperture":102,"telescope":"startravel102","mount":"AZ Pronto + tripod","shortlist":True},
+    {"id":"heritage130","name":"Heritage 130P","kind":"Dobsonian","aperture":130,"telescope":130,"mount":"Tabletop Dobsonian"},
+    {"id":"heritage150","name":"Heritage 150P","kind":"Dobsonian","aperture":150,"telescope":150,"mount":"Tabletop Dobsonian"},
 ]
+REDUCERS = {"reducer063": .63, "reducer050": .5}
+
+
+def cohorts_for(instrument):
+    if instrument["id"] == "vortex":
+        return ("fixed",)
+    return ("wide", "second", *REDUCERS) if instrument["id"] in ("mak102", "mak127") else ("wide", "second")
+
+
 RENDER_PROFILE = "clean-circle-v2"
 PROPERTIES = {
     "LandscapeMgr.flagUseLightPollutionFromDatabase":False,
@@ -205,6 +216,12 @@ def main():
             "Nebula and galaxy photo textures are illustrative; do not infer that the same structure will be visible by eye.",
             "PowerSeeker 70EQ identification and Vortex 8x42 size are provisional; PowerSeeker 4 mm apparent field is estimated at 30 degrees.",
             "Each object has its own disclosed date; all instruments and Bortle variants for that object share the same scene."]}
+    manifest["instruments"]=[dict(instrument) for instrument in INSTRUMENTS]
+    manifest["objects"]=TARGETS
+    manifest["comparison"]="Two stock-eyepiece cohorts plus idealized MAK reducer rows; Barlow disabled. Fixed binocular reference."
+    reducer_note="MAK 0.63x/0.5x reducer rows show nominal geometry only. Hardware compatibility, back focus, vignetting and field illumination are unverified. The Celestron SCT 0.63x reducer is not compatible with Maksutov tubes."
+    photo_note="Startravel Photo 20/10 mm apparent fields are assumed at 50 degrees; exact field framing needs confirmation. Explorer 130PS and Heritage 130P share nominal 130/650 optics; mount ergonomics are not simulated."
+    manifest["limitations"]=[note for note in manifest["limitations"] if not note.startswith(("MAK 0.63x/0.5x", "Startravel Photo"))]+[reducer_note,photo_note]
     equipment=st.equipment()
     for instrument in manifest["instruments"]:
         kind="ocular" if instrument["id"]=="vortex" else "telescope"
@@ -223,19 +240,20 @@ def main():
             for bortle in args.bortle:
                 luminance=set_bortle(bortle)
                 for instrument in INSTRUMENTS:
-                    cohorts=("fixed",) if instrument["id"]=="vortex" else ("wide","second")
+                    cohorts=cohorts_for(instrument)
                     for cohort in cohorts:
                         key=f'{target["id"]}-b{bortle}-{instrument["id"]}-{cohort}'
                         destination=output/"images"/(key+".png")
                         old=next((c for c in manifest["captures"] if c["id"]==key),None)
-                        if args.resume and old and old.get("render_profile")==RENDER_PROFILE and old["scene"]["at"]==target["at"] and destination.exists() and hashlib.sha256(destination.read_bytes()).hexdigest()==old["sha256"]:
+                        reducer=REDUCERS.get(cohort,1)
+                        if args.resume and old and old.get("render_profile")==RENDER_PROFILE and old["scene"]["at"]==target["at"] and old.get("reducer",1)==reducer and destination.exists() and hashlib.sha256(destination.read_bytes()).hexdigest()==old["sha256"]:
                             continue
                         if instrument["id"]=="vortex":
                             state=st.binocular_view(target["target"],freeze_camera=True);eyepiece=None
                         else:
                             telescope=instrument["telescope"]
-                            eyepiece=(20 if telescope==70 else 25) if cohort=="wide" else (4 if telescope==70 else 10)
-                            state=st.view(telescope,eyepiece,target["target"],freeze_camera=True)
+                            eyepiece=st.stock_eyepieces(telescope)[1 if cohort=="second" else 0]
+                            state=st.view(telescope,eyepiece,target["target"],freeze_camera=True,reducer=reducer)
                         # Oculars resets several settings when changing a preset.
                         set_property("StelObjectMgr.objectPointerVisibility",False)
                         time.sleep(args.settle)
@@ -260,7 +278,7 @@ def main():
                         if st.request("main/view")!=camera:
                             raise RuntimeError("The camera changed while rendering the screenshot")
                         record={"id":key,"object":target["id"],"bortle":bortle,"instrument":instrument["id"],"cohort":cohort,
-                            "eyepiece_mm":eyepiece,"magnification":state["magnification"],"field_of_view_deg":state["field_of_view_deg"],
+                            "eyepiece_mm":eyepiece,"reducer":reducer,"magnification":state["magnification"],"field_of_view_deg":state["field_of_view_deg"],
                             "render_profile":RENDER_PROFILE,"light_pollution_cd_m2":luminance,"image":"images/"+destination.name,"live":state["live"],
                             "camera":state["camera"],"scene":metadata,**file_metadata}
                         if old:manifest["captures"].remove(old)

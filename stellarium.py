@@ -25,7 +25,13 @@ TELESCOPES = {
     127: "Sky-Watcher. MAK 127/1500",
     130: "Sky-Watcher Heritage 130P 130/650",
     150: "Sky-Watcher Heritage 150P 150/750",
+    "explorer130": "Sky-Watcher Explorer 130PS 130/650",
+    "startravel102": "Sky-Watcher Startravel 102/500",
 }
+def stock_eyepieces(telescope):
+    return (20, 4) if telescope == 70 else (20, 10) if telescope == "startravel102" else (25, 10)
+
+
 BINOCULAR = "Vortex Diamondback 8x42"
 
 
@@ -69,6 +75,8 @@ def equipment():
         for key, value in ini[kind].items():
             index, field = key.split("\\", 1)
             result[kind].setdefault(index, {})[field] = value
+        # QSettings writes keys lexically (0, 1, 10, ...); array indices are numeric.
+        result[kind] = dict(sorted(result[kind].items(), key=lambda item: int(item[0])))
     return result
 
 
@@ -111,27 +119,35 @@ def start():
     raise RuntimeError("Stellarium did not expose the authenticated API. Inspect its log.txt.")
 
 
-def view(telescope, eyepiece, target, hide_landscape=False, barlow=1, freeze_camera=False):
-    stock_eyepieces = (20, 4) if telescope == 70 else (25, 10)
+def view(telescope, eyepiece, target, hide_landscape=False, barlow=1, freeze_camera=False, reducer=1):
+    stock_pair = stock_eyepieces(telescope)
     if eyepiece is None:
-        eyepiece = stock_eyepieces[0]
-    if eyepiece not in stock_eyepieces:
-        raise RuntimeError(f"Stock eyepieces for this telescope: {stock_eyepieces}")
+        eyepiece = stock_pair[0]
+    if eyepiece not in stock_pair:
+        raise RuntimeError(f"Stock eyepieces for this telescope: {stock_pair}")
     if barlow != 1 and telescope != 70:
         raise RuntimeError("The 3x Barlow is part of the PowerSeeker kit; other kits default to no Barlow.")
+    if reducer not in (1, .63, .5) or (reducer != 1 and telescope not in (102, 127)):
+        raise RuntimeError("Nominal reducer scenarios support only MAK 102/127 at 0.63x or 0.5x")
+    if reducer != 1 and barlow != 1:
+        raise RuntimeError("Choose either a Barlow or a reducer, not both")
     items = equipment()
     ti = next(i for i, t in items["telescope"].items()
               if profile_name(t) == TELESCOPES[telescope])
-    ocular_prefix = "Celestron PowerSeeker" if telescope == 70 else "Sky-Watcher."
+    ocular_prefix = "Celestron PowerSeeker" if telescope == 70 else "Sky-Watcher Photo" if telescope == "startravel102" else "Sky-Watcher."
     oi = next(i for i, o in items["ocular"].items()
               if profile_name(o).startswith(ocular_prefix) and float(o["efl"]) == eyepiece)
     li = next(i for i, lens in items["lens"].items() if float(lens["multipler"]) == barlow) if barlow != 1 else -1
-    magnification = float(items["telescope"][ti]["focalLength"]) / eyepiece * barlow
+    if reducer != 1:
+        li = next(i for i, lens in items["lens"].items()
+                  if profile_name(lens).startswith("Nominal reducer") and float(lens["multipler"]) == reducer)
+    multiplier = barlow * reducer
+    magnification = float(items["telescope"][ti]["focalLength"]) / eyepiece * multiplier
     field_stop = float(items["ocular"][oi]["fieldStop"])
-    fov = (field_stop / (float(items["telescope"][ti]["focalLength"]) * barlow) * 57.3
+    fov = (field_stop / (float(items["telescope"][ti]["focalLength"]) * multiplier) * 57.3
            if field_stop > 0 else float(items["ocular"][oi]["afov"]) / magnification)
     return {"telescope": items["telescope"][ti], "eyepiece": items["ocular"][oi],
-            "barlow": barlow, "magnification": magnification, "field_of_view_deg": fov,
+            "barlow": barlow, "reducer": reducer, "magnification": magnification, "field_of_view_deg": fov,
             **apply_view(ti, oi, li, target, hide_landscape, freeze_camera)}
 
 
@@ -258,9 +274,11 @@ def main():
         commands.add_parser(name)
     show = commands.add_parser("view")
     instrument = show.add_mutually_exclusive_group(required=True)
-    instrument.add_argument("--telescope", type=int, choices=tuple(TELESCOPES))
+    instrument.add_argument("--telescope", type=lambda value: int(value) if value.isdecimal() else value, choices=tuple(TELESCOPES))
     instrument.add_argument("--binocular", choices=("vortex-8x42",))
     show.add_argument("--eyepiece", type=int, help="Stock focal length in mm; defaults to the widest stock eyepiece")
+    show.add_argument("--reducer", type=float, choices=(1, .63, .5), default=1,
+                      help="Idealized MAK reducer factor; hardware compatibility is unverified")
     show.add_argument("--barlow", type=int, choices=(1, 3), default=1)
     show.add_argument("--object", default="Moon")
     show.add_argument("--hide-landscape", action="store_true",
@@ -280,11 +298,11 @@ def main():
             result = equipment()
         elif args.command == "view":
             if args.binocular:
-                if args.eyepiece is not None or args.barlow != 1:
-                    raise RuntimeError("Binoculars have fixed magnification; omit --eyepiece and --barlow.")
+                if args.eyepiece is not None or args.barlow != 1 or args.reducer != 1:
+                    raise RuntimeError("Binoculars have fixed magnification; omit --eyepiece, --barlow and --reducer.")
                 result = binocular_view(args.object, args.hide_landscape)
             else:
-                result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow)
+                result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow, reducer=args.reducer)
         elif args.command == "scene":
             result = scene(args.at)
         elif args.command == "tour":

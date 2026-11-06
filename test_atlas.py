@@ -1,10 +1,15 @@
 """Regression checks for incomplete native screenshots and stale coordinates."""
 import math
 import struct
+from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 import zlib
 
 from capture_atlas import altitude_is_current, inspect_png
+import stellarium as st
+from verify_atlas import check_repeated_images
 
 
 def chunk(kind, payload):
@@ -35,6 +40,60 @@ class CaptureChecks(unittest.TestCase):
         self.assertTrue(altitude_is_current(current,status))
         current["altitude-geometric"] = -20
         self.assertFalse(altitude_is_current(current,status))
+
+    def test_reducer_selects_the_explicit_scenario_not_the_builtin(self):
+        equipment = {
+            "telescope":{"1":{"name":"[Compare] Sky-Watcher. MAK 102/1300","focalLength":"1300"}},
+            "ocular":{"3":{"name":"[Compare] Sky-Watcher. Super 25mm","efl":"25","afov":"50","fieldStop":"22"}},
+            "lens":{"1":{"name":"[Built-in] F/6.3 Reducer","multipler":"0.63"},
+                    "4":{"name":"[Compare] Nominal reducer 0.63x (idealized; compatibility unverified)","multipler":"0.63"}}
+        }
+        with patch.object(st,"equipment",return_value=equipment), patch.object(st,"apply_view",return_value={}) as apply:
+            result=st.view(102,25,"M45",reducer=.63)
+        self.assertEqual(apply.call_args.args[:3],("1","3","4"))
+        self.assertAlmostEqual(result["magnification"],32.76)
+        self.assertAlmostEqual(result["field_of_view_deg"],22/(1300*.63)*57.3)
+
+    def test_equal_apertures_do_not_select_the_wrong_optical_design(self):
+        equipment = {
+            "telescope":{"1":{"name":"[Compare] Sky-Watcher. MAK 102/1300","focalLength":"1300"},
+                         "6":{"name":"[Compare] Sky-Watcher Startravel 102/500","focalLength":"500"}},
+            "ocular":{"3":{"name":"[Compare] Sky-Watcher. Super 10mm","efl":"10","afov":"52","fieldStop":"9"},
+                      "8":{"name":"[Compare] Sky-Watcher Photo 10mm (AFOV estimate 50deg)","efl":"10","afov":"50","fieldStop":"0"}},
+            "lens":{}
+        }
+        with patch.object(st,"equipment",return_value=equipment), patch.object(st,"apply_view",return_value={}) as apply:
+            result=st.view("startravel102",10,"M45")
+        self.assertEqual(apply.call_args.args[:3],("6","8",-1))
+        self.assertEqual(result["magnification"],50)
+        self.assertEqual(result["field_of_view_deg"],1)
+
+    def test_reducer_is_not_silently_applied_to_other_kits(self):
+        with patch.object(st,"equipment") as equipment:
+            with self.assertRaisesRegex(RuntimeError,"MAK"):
+                st.view("explorer130",25,"M45",reducer=.5)
+            equipment.assert_not_called()
+
+    def test_identical_optics_can_render_identically_but_different_scenes_cannot(self):
+        first={"sha256":"same","instrument":"heritage130","object":"ring","bortle":5,"cohort":"wide","magnification":26,"field_of_view_deg":1.939,"scene":{"at":"2027-05-06T01:30:00+02:00"}}
+        second=dict(first,instrument="explorer130")
+        check_repeated_images([first,second])
+        second["object"]="andromeda"
+        with self.assertRaisesRegex(AssertionError,"scenes"):
+            check_repeated_images([first,second])
+        second.update(object="ring",instrument="mak127")
+        with self.assertRaisesRegex(AssertionError,"Unexpected"):
+            check_repeated_images([first,second])
+
+    def test_qsettings_lexical_serialization_keeps_numeric_array_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/"modules/Oculars").mkdir(parents=True)
+            (root/"modules/Oculars/ocular.ini").write_text(
+                "[telescope]\n0\\name=First\n1\\name=Second\n10\\name=Eleventh\n2\\name=Third\n[ocular]\n[lens]\n")
+            with patch.object(st,"CONFIG",root):
+                records=st.equipment()["telescope"]
+        self.assertEqual(list(records),["0","1","2","10"])
 
 
 if __name__ == "__main__":

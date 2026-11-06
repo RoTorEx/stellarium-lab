@@ -159,7 +159,7 @@ Open `gallery/index.html` directly in a browser. The generated gallery is local
 and ignored by Git. It needs no server, account, build, package installation or
 internet connection: metadata is loaded from a local `data.js` script.
 
-The page compares six instruments on eleven objects: Moon, Pleiades, Jupiter,
+The page compares eight instruments on eleven objects: Moon, Pleiades, Jupiter,
 Saturn, Mars, Venus, Orion Nebula, Andromeda Galaxy, Hercules Cluster, Ring
 Nebula and Beehive Cluster. Select an object and Bortle 4 or 5. The first row
 uses each kit's widest stock eyepiece, and the second uses its other stock
@@ -169,7 +169,7 @@ used. Click an image for the original and previous/next instrument controls;
 arrow keys navigate and Escape closes it. Optional 4× center inspection is a
 digital crop and adds no optical detail.
 
-Reproduce or resume the 242 unique native screenshots with the installed
+Reproduce or resume the 418 unique native screenshots with the installed
 Stellarium running in an authenticated session:
 
 ```sh
@@ -208,3 +208,54 @@ The original Sky-Watcher field stops are preserved, unmeasured configuration.
 
 Generated images, scene state and metadata remain in `gallery/`; diagnostics and
 credentials remain in `.local/`. Nothing in this capture workflow uploads them.
+
+## Tripod shortlist and nominal MAK reducers
+
+The tripod shortlist filter contains four complete kit proposals: Skymax 102 on
+AZ Pronto, Skymax 127 on AZ5, Explorer 130PS on AZ5, and Startravel 102/500 on
+AZ Pronto. The MAK optical profiles already existed and are reused. Mount labels
+are context; Stellarium does not simulate mount vibration, setup effort or posture.
+The earlier Heritage profiles remain available. Explorer 130PS shares their
+130P nominal aperture/focal length but uses a separate closed-tube equipment
+profile and tripod kit label.
+
+Explorer uses 25/10 mm Super eyepieces (26×/65×). The regional Startravel kit uses
+Photo 20/10 mm (25×/50×), both with **assumed 50° apparent fields** and no invented
+field stops. Neither color fringing nor real edge quality is simulated.
+References: [Explorer specifications](https://www.opticalvision.co.uk/user/Optical-Vision-Catalogue-2020.pdf),
+[Startravel kit](https://deltaoptical.pl/teleskop-sky-watcher-bk1025-az-pronto-102-500).
+
+```sh
+python3 stellarium.py view --telescope explorer130 --eyepiece 25 --object M45
+python3 stellarium.py view --telescope startravel102 --eyepiece 20 --object M45
+python3 stellarium.py view --telescope 102 --eyepiece 25 --reducer 0.63 --object M45
+python3 stellarium.py view --telescope 127 --eyepiece 25 --reducer 0.5 --object M45
+```
+
+The additional MAK section compares the same 25 mm eyepiece without a reducer,
+with nominal 0.63×, and with nominal 0.5× factors. These are **idealized geometry
+scenarios, not verified accessories for these tubes**. New `[Compare]` Lens
+entries are explicitly named accordingly; the original built-in reducer remains
+unchanged. The helper selects the explicit scenario by identity, not just by
+matching a multiplier. Reducers cannot be silently combined with a Barlow.
+
+| MAK with 25 mm | No reducer | Nominal 0.63× | Nominal 0.5× |
+| --- | --- | --- | --- |
+| 102/1300 | 52× / 0.970° | 32.76× / 1.539° | 26× / 1.939° |
+| 127/1500 | 60× / 0.840° | 37.8× / 1.334° | 30× / 1.681° |
+
+A reducer multiplies nominal effective focal length and magnification by its
+factor; the modeled field diameter grows by the reciprocal factor. Real usable
+field can be limited by the MAK's baffle, field illumination, reducer spacing and
+available focus travel. These effects are absent from the screenshots.
+[Celestron explicitly lists Maksutov tubes as incompatible with its SCT 0.63×
+Reducer/Corrector](https://www.celestron.com/products/reducer-corrector).
+A [generic 0.5× eyepiece reducer](https://www.svbony.com/products/focal-reducer-05x)
+exists, but its actual reduction and usable image depend on the optical layout;
+this project has not tested either accessory physically on a Sky-Watcher MAK.
+
+The extended atlas has 418 unique images: 15 stock combinations plus four MAK
+reducer combinations for each of 11 objects under both Bortle scenarios. The
+original 242 screenshots are retained. Capture indices in old metadata describe
+the historical configuration; current equipment lookup uses profile identities
+so reindexing cannot select an unrelated telescope.
