@@ -11,11 +11,12 @@ workflow and API helper, not a second copy of the application state.
 ## Setup and operation
 
 Keep this checkout at `Development/personal/projects/space/stellarium-lab` beside
-the existing Development/config checkout. Install Python 3 and Stellarium, then
-quit Stellarium and install the configuration link:
+the existing Development/config checkout. Install Stellarium, quit it, and
+install the configuration link with the system Bash. Linking needs no Python or
+virtual environment. The API commands below require Python 3's standard library:
 
 ```sh
-python3 ../../../../config/dotfiles/stellarium/link.py
+bash ../../../../config/dotfiles/stellarium/link.sh
 python3 stellarium.py equipment
 python3 stellarium.py start
 python3 stellarium.py view --telescope 102 --eyepiece 25 --object Moon
@@ -50,14 +51,35 @@ restore them with Stellarium's G/F controls or restart without saving settings.
 
 ## Equipment
 
-These profiles already existed in the imported Oculars configuration. Both MAK
-profiles and both eyepieces were retained without duplication. The nominal
-combinations, without a Barlow or reducer, are:
+The two MAK profiles and Super 25/10 mm eyepieces were preserved from the
+original configuration. The Heritage profiles and PowerSeeker stock eyepieces
+were added without replacing existing instruments, including the Bresser Dobson.
+The PowerSeeker identification is provisional until its model label is checked.
 
-| Telescope | Aperture / focal length | 25 mm | 10 mm |
+| Telescope | Aperture / focal length | Stock eyepieces | Magnification |
 | --- | --- | --- | --- |
-| Sky-Watcher MAK 102 | 102 / 1300 mm | 52× | 130× |
-| Sky-Watcher MAK 127 | 127 / 1500 mm | 60× | 150× |
+| PowerSeeker 70EQ (unconfirmed model) | 70 / 700 mm | 20 mm, 4 mm | 35×, 175× |
+| Sky-Watcher MAK 102 | 102 / 1300 mm | 25 mm, 10 mm | 52×, 130× |
+| Sky-Watcher MAK 127 | 127 / 1500 mm | 25 mm, 10 mm | 60×, 150× |
+| Sky-Watcher Heritage 130P | 130 / 650 mm | 25 mm, 10 mm | 26×, 65× |
+| Sky-Watcher Heritage 150P | 150 / 750 mm | 25 mm, 10 mm | 30×, 75× |
+
+Manufacturer references: [PowerSeeker 70EQ](https://www.celestron.com/products/powerseeker-70eq-telescope/),
+[Heritage 130P](https://www.skywatcher.com/product/heritage-p130/),
+[Heritage 150P](https://www.skywatcherusa.com/products/heritage-150-tabletop-dobsonian),
+and the [Sky-Watcher Dobsonian catalog](https://www.skywatcher.com.tw/upload_attach/1686918808.pdf).
+PowerSeeker includes a 3× Barlow: use `--barlow 3` for 105× or 525× framing.
+Those are mathematical magnifications, not a claim of useful image quality.
+The existing generic 3× lens entry supplies that multiplier without duplication.
+
+PowerSeeker 20 mm uses a nominal 50° apparent field, consistent with the
+[series manual](https://s3.amazonaws.com/celestron-site-support-files/support_files/1245780194_powerseekerinst.pdf).
+The 4 mm apparent field is not specified there: **30° is an explicit placeholder**,
+visible in its Oculars name. Its field framing is approximate until measured or
+confirmed. No field stops are invented for the added eyepieces. The PowerSeeker
+uses an equatorial mount and erect-image diagonal; Heritage uses an alt-az mount
+and a conventional 180° inverted Newtonian view. Actual eyepiece orientation can
+vary with focuser and observer position.
 
 The existing Super 25 mm profile uses 50° apparent field and a 22 mm field stop;
 Super 10 mm uses 52° and 9 mm. These field-stop values are preserved user data,
@@ -73,15 +95,39 @@ different bundle. The inherited alt-az and image-orientation settings remain
 unchanged. Stellarium simulates framing and magnification; seeing, contrast,
 eyepiece aberrations and a physical mount connection are outside this workflow.
 
+## Compare the Pleiades
+
+Use a single paused observing time so the target stays in the same scene. The
+example is 2026-11-06 at 21:00 Warsaw (CET, UTC+01:00). It preserves the existing
+observer location; Stellarium can display a different local clock for that place.
+`scene` verifies the resulting Julian date and paused timerate through the API.
+
+```sh
+python3 stellarium.py start
+python3 stellarium.py scene --at 2026-11-06T21:00:00+01:00
+python3 stellarium.py view --telescope 70 --object M45
+python3 stellarium.py view --telescope 102 --object M45
+python3 stellarium.py view --telescope 127 --object M45
+python3 stellarium.py view --telescope 130 --object M45
+python3 stellarium.py view --telescope 150 --object M45
+python3 stellarium.py view --telescope 70 --eyepiece 4 --barlow 3 --object M45
+```
+
+Omitting `--eyepiece` selects the widest stock eyepiece: 20 mm for PowerSeeker,
+25 mm for the Sky-Watcher models. Choose the other stock eyepiece explicitly.
+The telescope selector uses aperture identifiers, with an exact model-name
+lookup so Heritage 150P cannot accidentally select the existing Bresser 150/750.
+These examples are sequential alternatives; leave the desired view selected.
+
 ## Verified on this Mac
 
 - Stellarium **24.4.0** reads its user directory through the installed symlink.
 - All 58 original files were copied and SHA-256 compared before configuration
   edits. Logs/output stay local; all other imported user files are tracked.
-- All four MAK/eyepiece combinations were selected through the live API, with
-  ocular mode enabled and no Barlow/reducer. Camera directions were also
-  checked. Polaris was visibly centered in an application screenshot; Saturn
-  was also exercised through the API above the horizon.
+- Both stock eyepieces for all five telescopes and both PowerSeeker 3× Barlow
+  combinations were exercised on M45: 12 combinations, with equipment indices,
+  camera direction, and the target above the horizon checked through the API.
+  The earlier MAK setup was also exercised on the Moon, Saturn and Polaris.
 - Telescope and eyepiece selections persisted through a clean quit/restart.
 - Authenticated reads worked; unauthenticated requests received HTTP 401.
 - The installer was checked for backup preservation, repeat invocation, and

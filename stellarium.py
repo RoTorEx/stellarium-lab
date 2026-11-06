@@ -3,6 +3,7 @@
 import argparse
 import base64
 import configparser
+from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
@@ -18,6 +19,13 @@ ROOT = Path(__file__).resolve().parent
 LOCAL = ROOT / ".local"
 BASE = "http://127.0.0.1:8090/api/"
 CONFIG = ROOT.parents[3] / "config/dotfiles/stellarium/user"
+TELESCOPES = {
+    70: "Celestron PowerSeeker 70EQ 70/700 (model unconfirmed)",
+    102: "Sky-Watcher. MAK 102/1300",
+    127: "Sky-Watcher. MAK 127/1500",
+    130: "Sky-Watcher Heritage 130P 130/650",
+    150: "Sky-Watcher Heritage 150P 150/750",
+}
 
 
 def request(path, data=None):
@@ -38,7 +46,7 @@ def equipment():
     ini.optionxform = str
     ini.read(CONFIG / "modules/Oculars/ocular.ini")
     result = {}
-    for kind in ("telescope", "ocular"):
+    for kind in ("telescope", "ocular", "lens"):
         result[kind] = {}
         for key, value in ini[kind].items():
             index, field = key.split("\\", 1)
@@ -58,7 +66,7 @@ def start():
         raise RuntimeError("Shared config is missing. Clone the config repository and install its directory link first.")
     active = Path.home() / "Library/Application Support/Stellarium"
     if not active.is_symlink() or active.resolve() != CONFIG.resolve():
-        raise RuntimeError("The application's user directory is not linked to the shared config. Run link.py first.")
+        raise RuntimeError("The application's user directory is not linked to the shared config. Run link.sh first.")
     LOCAL.mkdir(mode=0o700, exist_ok=True)
     LOCAL.chmod(0o700)
     password = secrets.token_urlsafe(32)
@@ -85,12 +93,21 @@ def start():
     raise RuntimeError("Stellarium did not expose the authenticated API. Inspect its log.txt.")
 
 
-def view(telescope, eyepiece, target, hide_landscape=False):
+def view(telescope, eyepiece, target, hide_landscape=False, barlow=1):
+    stock_eyepieces = (20, 4) if telescope == 70 else (25, 10)
+    if eyepiece is None:
+        eyepiece = stock_eyepieces[0]
+    if eyepiece not in stock_eyepieces:
+        raise RuntimeError(f"Stock eyepieces for this telescope: {stock_eyepieces}")
+    if barlow != 1 and telescope != 70:
+        raise RuntimeError("The 3x Barlow is part of the PowerSeeker kit; other kits default to no Barlow.")
     items = equipment()
     ti = next(i for i, t in items["telescope"].items()
-              if t["name"].startswith("Sky-Watcher") and float(t["diameter"]) == telescope)
+              if t["name"] == TELESCOPES[telescope])
+    ocular_prefix = "Celestron PowerSeeker" if telescope == 70 else "Sky-Watcher."
     oi = next(i for i, o in items["ocular"].items()
-              if o["name"].startswith("Sky-Watcher") and float(o["efl"]) == eyepiece)
+              if o["name"].startswith(ocular_prefix) and float(o["efl"]) == eyepiece)
+    li = next(i for i, lens in items["lens"].items() if float(lens["multipler"]) == barlow) if barlow != 1 else -1
     properties = request("stelproperty/list")
     if hide_landscape:
         for name in ("landscapeDisplayed", "fogDisplayed"):
@@ -107,12 +124,12 @@ def view(telescope, eyepiece, target, hide_landscape=False):
     direction = [math.cos(dec) * math.cos(ra), math.cos(dec) * math.sin(ra), math.sin(dec)]
     request("main/view", {"j2000": json.dumps(direction)})
     for name, value in (("selectedTelescopeIndex", ti), ("selectedOcularIndex", oi),
-                        ("selectedLensIndex", -1), ("enableOcular", "true")):
+                        ("selectedLensIndex", li), ("enableOcular", "true")):
         request("stelproperty/set", {"id": "Oculars." + name, "value": value})
     time.sleep(0.5)
     props = request("stelproperty/list")
     expected = {"selectedTelescopeIndex": int(ti), "selectedOcularIndex": int(oi),
-                "selectedLensIndex": -1, "enableOcular": True}
+                "selectedLensIndex": int(li), "enableOcular": True}
     if any(props["Oculars." + k]["value"] != v for k, v in expected.items()):
         raise RuntimeError("Stellarium did not apply the requested optical combination.")
     camera = request("main/view")
@@ -124,11 +141,27 @@ def view(telescope, eyepiece, target, hide_landscape=False):
     if not centered:
         raise RuntimeError("The camera is not centered on the target. Restart Stellarium before retrying.")
     return {"telescope": items["telescope"][ti], "eyepiece": items["ocular"][oi],
+            "barlow": barlow,
+            "magnification": float(items["telescope"][ti]["focalLength"]) / eyepiece * barlow,
             "live": {"Oculars." + k: props["Oculars." + k]["value"] for k in expected},
             "camera": camera,
             "target": {"name": target, "above_horizon": info.get("above-horizon"),
                        "altitude_deg": info.get("altitude")},
             "view": request("main/status")["view"]}
+
+
+def scene(at):
+    instant = datetime.fromisoformat(at)
+    if instant.tzinfo is None:
+        raise RuntimeError("--at requires an explicit UTC offset, e.g. 2026-11-06T21:00:00+01:00")
+    utc = instant.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    request("scripts/direct", {"code": f'core.setDate({json.dumps(utc)}, "utc"); core.setTimeRate(0); core.setSelectedObjectInfo("ShortInfo");'})
+    time.sleep(0.5)
+    status = request("main/status")
+    expected_jd = instant.timestamp() / 86400 + 2440587.5
+    if abs(status["time"]["jday"] - expected_jd) > 1 / 86400 or status["time"]["timerate"] != 0:
+        raise RuntimeError("Stellarium did not apply the requested frozen observing time.")
+    return {"requested_at": instant.isoformat(), "time": status["time"], "location": status["location"]}
 
 
 def main():
@@ -137,11 +170,14 @@ def main():
     for name in ("start", "status", "equipment", "quit"):
         commands.add_parser(name)
     show = commands.add_parser("view")
-    show.add_argument("--telescope", type=int, choices=(102, 127), required=True)
-    show.add_argument("--eyepiece", type=int, choices=(25, 10), required=True)
+    show.add_argument("--telescope", type=int, choices=tuple(TELESCOPES), required=True)
+    show.add_argument("--eyepiece", type=int, help="Stock focal length in mm; defaults to the widest stock eyepiece")
+    show.add_argument("--barlow", type=int, choices=(1, 3), default=1)
     show.add_argument("--object", default="Moon")
     show.add_argument("--hide-landscape", action="store_true",
                       help="Hide landscape and fog for optical comparison; preserve location and time")
+    prepare = commands.add_parser("scene", help="Set and freeze an observing time for repeatable comparisons")
+    prepare.add_argument("--at", required=True, help="ISO 8601 date and time including its UTC offset")
     args = parser.parse_args()
     try:
         if args.command == "start":
@@ -151,11 +187,13 @@ def main():
         elif args.command == "equipment":
             result = equipment()
         elif args.command == "view":
-            result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape)
+            result = view(args.telescope, args.eyepiece, args.object, args.hide_landscape, args.barlow)
+        elif args.command == "scene":
+            result = scene(args.at)
         else:
             result = request("scripts/direct", {"code": 'RemoteControl.setFlagAutoStart(false); RemoteControl.setPassword(""); RemoteControl.setFlagUsePassword(false); RemoteControl.saveSettings(); core.quitStellarium();'})
         print(json.dumps(result, indent=2, ensure_ascii=False))
-    except (OSError, RuntimeError, KeyError, StopIteration, urllib.error.URLError) as exc:
+    except (OSError, RuntimeError, KeyError, ValueError, StopIteration, urllib.error.URLError) as exc:
         parser.exit(1, f"{exc}\n")
 
 
